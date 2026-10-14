@@ -17,3 +17,44 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 ```
 
+
+
+## Problem 1
+```{r}
+ny_noaa_clean =
+ny_noaa |>
+mutate(
+year = lubridate::year(date),
+month= lubridate::month(date),
+day = lubridate::day(date),
+tmax = as.numeric(tmax) / 10,
+tmin = as.numeric(tmin) / 10,
+prcp=prcp / 10
+)
+
+ny_noaa_clean |>
+  summarize(
+    across(c(prcp, snow, snwd, tmax, tmin), ~ mean(is.na(.x)) * 100)
+  ) |>
+  knitr::kable(digits = 1)
+
+
+ny_noaa_clean |>
+  count(snow, sort = TRUE) |>
+  head(10)
+
+```
+The most common snowfall value is 0 mm (2,008,508 observations), 
+accounting for about 77% of all observations. 
+This is probably because it does not snow on most days in New York.
+
+The second most common value is NA (381,221 observations), 
+which means no measurement was recorded on those days. 
+This is not the same as a day with no snowfall.
+
+Among the non-zero values, the most frequent are 25, 13, 51 and 76 mm, 
+which correspond closely to 1, 0.5, 2 and 3 inches (1 inch = 25.4 mm). 
+This suggests that snowfall was originally recorded in inches 
+and then converted to millimeters, so values near whole or half inches 
+appear far more often than others.
+
