@@ -173,3 +173,81 @@ ny_noaa_clean |>
   count()
 ```
 1183 observations have a minimum temperature higher than the maximum.
+
+
+
+##Problem 2
+```{r}
+covar_df =
+  read_csv("data/nhanes_covar.csv", skip = 4, na = c("", ".", "NA")) |>
+  janitor::clean_names()
+
+accel_df =
+  read_csv("data/nhanes_accel.csv") |>
+  janitor::clean_names()
+```
+
+```{r}
+nhanes_df =
+  left_join(covar_df, accel_df, by = "seqn") |>
+  drop_na(sex, age, bmi, education) |>
+  filter(age >= 21) |>
+  mutate(
+    sex = factor(sex, levels = c(1, 2), labels = c("male", "female")),
+    education = factor(
+      education,
+      levels = c(1, 2, 3),
+      labels = c("Less than high school", "High school equivalent", "More than high school"),
+      ordered = TRUE
+    )
+  )
+nhanes_df |>
+  filter(seqn == 62161) |>
+  select(seqn, sex, age, bmi, education)
+```
+
+
+```{r}
+nhanes_df |>
+  count(education, sex) |>
+  pivot_wider(names_from = sex, values_from = n) |>
+  knitr::kable(caption = "Number of men and women in each education category")
+
+nhanes_df |>
+  ggplot(aes(x = education, y = age, fill = sex)) +
+  geom_boxplot() +
+  labs(
+    title = "Age distribution by education and sex",
+    x = "Education",
+    y = "Age (years)",
+    fill = "Sex"
+  )
+
+nhanes_df |>
+  group_by(education, sex) |>
+  summarize(
+    n = n(),
+    median_age = median(age),
+    q1_age = quantile(age, 0.25),
+    q3_age = quantile(age, 0.75),
+    .groups = "drop"
+  )
+```
+
+The table shows the number of men and women in each education category 
+among the 228 participants aged 21 or older. 
+The largest category is “More than high school” (n = 115). 
+Men and women are similarly represented in “Less than high school” (27 vs. 28) 
+and “More than high school” (56 vs. 59). The exception is “High school equivalent”, 
+which has 35 men but only 23 women.
+
+The boxplot shows that median age is 60 (men) and 61 (women) among participants 
+with less than a high school education, compared with 43.5 (men) and 41 (women) 
+among those with more than a high school education, 
+suggesting that participants with more education tend to be younger. 
+In the “High school equivalent” category, women are older than men (median 62 vs. 53), 
+while sex differences are small in the other categories. 
+However, the age distributions are wide and overlap substantially. 
+For example, the middle 50% of women with a high school equivalent education range 
+from 44.5 to 74.5 years.
+
