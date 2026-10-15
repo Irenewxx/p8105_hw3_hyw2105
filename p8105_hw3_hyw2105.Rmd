@@ -19,6 +19,8 @@ scale_fill_discrete = scale_fill_viridis_d
 
 
 
+
+
 ## Problem 1
 ```{r}
 ny_noaa_clean =
@@ -250,4 +252,93 @@ while sex differences are small in the other categories.
 However, the age distributions are wide and overlap substantially. 
 For example, the middle 50% of women with a high school equivalent education range 
 from 44.5 to 74.5 years.
+
+```{r}
+nhanes_long =
+  nhanes_df |>
+  pivot_longer(
+    cols = starts_with("min"),
+    names_to = "minute_label",
+    values_to = "mims"
+  ) |>
+  mutate(minute = parse_number(minute_label))
+nhanes_long
+
+total_activity_df =
+  nhanes_long |>
+  group_by(seqn, sex, age, education) |>
+  summarize(total_activity = sum(mims), .groups = "drop")
+total_activity_df
+```
+
+
+
+##draw plots
+total_activity
+```{r}
+total_activity_df |>
+  ggplot(aes(x = age, y = total_activity, color = sex)) +
+  geom_point(alpha = .5) +
+  geom_smooth(se = FALSE) +
+  facet_grid(. ~ education) +
+  labs(
+    title = "Total daily activity by age, sex, and education",
+    x = "Age (years)",
+    y = "Total daily activity (MIMS)",
+    color = "Sex"
+  )
+```
+The scatterplot shows that total daily activity generally declines with age, 
+but the pattern differs by education level. 
+Among participants with less than a high school education, 
+total activity falls steadily from about 17,000–18,500 MIMS 
+in the youngest participants to about 9,000 at age 80, 
+with men and women following similar trends. In the high school equivalent group, 
+women peak at about age 40 (roughly 17,000 MIMS), well above men (roughly 14,000), 
+and both sexes level off at about 10,000 after age 60. 
+In the more than high school group, the trends are flatter, 
+and women have higher total activity than men at most ages. 
+One man in this group (about age 36) has near-zero total activity, 
+which may reflect a device-wear or data issue worth checking. 
+Because each panel contains relatively few participants and the points 
+are widely scattered, the smooth curves should be interpreted as rough trends only.
+
+
+
+
+activity_by_minute
+```{r}
+activity_by_minute_df =
+  nhanes_long |>
+  group_by(education, sex, minute) |>
+  summarize(mean_mims = mean(mims), .groups = "drop")
+
+
+activity_by_minute_df |>
+  ggplot(aes(x = minute / 60, y = mean_mims, color = sex)) +
+  geom_line(alpha = .3) +
+  geom_smooth(se = FALSE) +
+  facet_grid(. ~ education) +
+  scale_x_continuous(breaks = c(0, 6, 12, 18, 24)) +
+  labs(
+    title = "24-hour activity profile by education and sex",
+    x = "Hour of day",
+    y = "Mean MIMS per minute",
+    color = "Sex"
+  )
+```
+In all three education groups, activity is lowest in the early morning (around 3–5 AM), 
+rises sharply between about 6 and 9 AM, remains high throughout the day, 
+and declines in the evening. Among participants with less than a high school education, 
+the profile peaks around midday at about 15 MIMS; men and women are nearly identical 
+during the day, but men are more active than women overnight and in the early morning. 
+In the high school equivalent group, women are slightly more active than men 
+during the day (roughly 13 vs. 12 MIMS). The difference is largest in the more than 
+high school group, where women remain at about 14 MIMS from late morning through 
+the evening, while men show a dip in the mid-afternoon and a smaller second rise 
+around 6 PM. Overnight activity is very similar across sexes and education levels. 
+These curves show group averages at each minute and hide substantial individual 
+variation. Education groups also differ in age (shown in the earlier boxplot), 
+and total activity declines with age, so differences across education groups may 
+partly reflect age rather than education itself.
 
