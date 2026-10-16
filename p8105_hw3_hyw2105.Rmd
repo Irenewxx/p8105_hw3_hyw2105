@@ -451,3 +451,34 @@ are only a few rides behind the fifth, so there is no clear gap separating
 the top five from the rest. Because the data are a 1% sample, small differences 
 in rank among these stations may not be meaningful.
 
+
+
+##summarize median duration
+```{r}
+citi_df |>
+  group_by(year, month, weekdays) |>
+  summarize(median_duration = median(duration), .groups = "drop") |>
+  ggplot(aes(x = weekdays, y = median_duration, color = year, group = year)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(. ~ month) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(
+    title = "Median ride duration by day of week, \nmonth, and year",
+    x = "Day of week",
+    y = "Median ride duration (minutes)",
+    color = "Year"
+  )
+citi_df
+```
+Median ride duration varies more by month and year than by day of the week. 
+In both years, rides are longer in July than in January 
+(2020: 13.4–16.5 vs. 8.5–10.0 minutes; 2024: 9.0–10.9 vs. 7.4–8.1 minutes). 
+Rides in 2020 are also longer than rides in 2024 on every day of the week, 
+with a larger gap in July (about 4–6 minutes) than in January (0.7–2.6 minutes). 
+Within a week, medians are generally highest on weekends, 
+most clearly in July 2020 (16.5 minutes vs. 13.4–14.2 on weekdays); 
+the exception is January 2024, when Sunday (7.4 minutes) is tied for the lowest. 
+These patterns are descriptive only, and because the data are a 1% sample, 
+differences of a few tenths of a minute may not be meaningful.
+
