@@ -342,3 +342,58 @@ variation. Education groups also differ in age (shown in the earlier boxplot),
 and total activity declines with age, so differences across education groups may 
 partly reflect age rather than education itself.
 
+
+
+##Problem 3
+```{r}
+jan_2020_df =
+  read_csv("data/citibike/Jan 2020 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(year = 2020, month = "January")
+
+jul_2020_df =
+  read_csv("data/citibike/July 2020 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(year = 2020, month = "July")
+
+jan_2024_df =
+  read_csv("data/citibike/Jan 2024 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(year = 2024, month = "January")
+
+jul_2024_df =
+  read_csv("data/citibike/July 2024 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(year = 2024, month = "July")
+
+citi_df =
+  bind_rows(jan_2020_df, jul_2020_df, jan_2024_df, jul_2024_df) |>
+  mutate(
+    year = factor(year),
+    month = factor(month, levels = c("January", "July")),
+    weekdays = factor(
+      weekdays,
+      levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+    ),
+    rideable_type = factor(rideable_type),
+    member_casual = factor(member_casual)
+  )
+```
+
+The Citi Bike dataset contains `r format(nrow(citi_df), big.mark = ",")` rides, 
+drawn from a 1% sample of rides lasting less than 4 hours in each of four months: 
+January and July of 2020 and 2024. There are `r ncol(citi_df)` variables: ride ID, 
+bike type (`rideable_type`), day of the week (`weekdays`), 
+ride duration in minutes (`duration`), start and end station names, 
+rider type (`member_casual`), and `year` and `month`,
+which I added based on the file names. The number of rides differs substantially 
+across the four months, from 12,420 in January 2020 to 47,156 in July 2024. 
+Ride duration ranges from `r round(min(citi_df$duration), 1)` 
+to `r round(max(citi_df$duration), 1)` minutes, with a median 
+of `r round(median(citi_df$duration), 1)` minutes, which is consistent with 
+the 4-hour (240-minute) cutoff. 
+About `r round(100 * mean(citi_df$rideable_type == "electric_bike"), 1)`% 
+of rides used electric bikes. Missing values occur only in 
+station names (`r sum(is.na(citi_df$start_station_name))` start stations 
+and `r sum(is.na(citi_df$end_station_name))` end stations); 
+all other variables are complete.
