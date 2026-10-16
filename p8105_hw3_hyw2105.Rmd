@@ -1,7 +1,8 @@
 ---
-title: "p8105_hw3_hyw2105"
+title: "Homework 3"
+author: "hyw2105"
+date: "2026-10-16"
 output: github_document
-date: "2026-10-14"
 ---
 
 ```{r setup}
@@ -10,9 +11,20 @@ library(p8105.datasets)
 library(patchwork)
 library(ggridges)
 
-knitr::opts_chunk$set(fig.width = 6, fig.asp = .6, out.width = "90%")
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%",
+  message = FALSE
+)
+
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
-options(ggplot2.continuous.colour = "viridis", ggplot2.continuous.fill = "viridis")
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
 scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 ```
@@ -22,30 +34,43 @@ scale_fill_discrete = scale_fill_viridis_d
 
 
 ## Problem 1
+The `ny_noaa` dataset contains daily weather observations from New York State 
+weather stations. It has `r format(nrow(ny_noaa), big.mark = ",")` rows 
+and `r ncol(ny_noaa)` variables, covering `r n_distinct(ny_noaa$id)` stations 
+from `r min(ny_noaa$date)` to `r max(ny_noaa$date)`. 
+The key variables are the station ID (`id`), the date (`date`), 
+precipitation (`prcp`), snowfall (`snow`), snow depth (`snwd`), 
+and the maximum and minimum temperature (`tmax`, `tmin`).
+
+### Data cleaning and summarizing the Missing data
 ```{r}
 ny_noaa_clean =
-ny_noaa |>
-mutate(
-year = lubridate::year(date),
-month= lubridate::month(date),
-day = lubridate::day(date),
-tmax = as.numeric(tmax) / 10,
-tmin = as.numeric(tmin) / 10,
-prcp=prcp / 10
-)
+  ny_noaa |>
+  mutate(
+    year = lubridate::year(date),
+    month = lubridate::month(date),
+    day = lubridate::day(date),
+    tmax = as.numeric(tmax) / 10,
+    tmin = as.numeric(tmin) / 10,
+    prcp = prcp / 10
+  )
 
 ny_noaa_clean |>
   summarize(
     across(c(prcp, snow, snwd, tmax, tmin), ~ mean(is.na(.x)) * 100)
   ) |>
-  knitr::kable(digits = 1)
+  knitr::kable(digits = 1, caption = "Percentage of missing values")
 
 
 ny_noaa_clean |>
   count(snow, sort = TRUE) |>
-  head(10)
-
+  head(10) |>
+  knitr::kable(caption = "Ten most common snowfall values (mm)")
 ```
+Missing data are a substantial issue: 43.7% of `tmax` and `tmin`, 
+22.8% of `snwd`, 14.7% of `snow`, and 5.6% of `prcp` are missing, 
+so temperature is the least complete variable.
+
 The most common snowfall value is 0 mm (2,008,508 observations), 
 accounting for about 77% of all observations. 
 This is probably because it does not snow on most days in New York.
@@ -61,47 +86,65 @@ and then converted to millimeters, so values near whole or half inches
 appear far more often than others.
 
 
-## January and July mean maximum temperature
+### January and July mean maximum temperature
 ```{r}
-monthly_tmax_df =
-ny_noaa_clean |>
-filter(month %in% c(1,7)) |>
-group_by(id, year, month)|>
-summarize(mean_tmax = mean(tmax, na.rm = TRUE), .groups = "drop")
+monthly_tmax_df <-
+  ny_noaa_clean |>
+  filter(month %in% c(1, 7)) |>
+  group_by(id, year, month) |>
+  summarize(mean_tmax = mean(tmax, na.rm = TRUE), .groups = "drop")
 head(ny_noaa_clean)
 
 
 monthly_tmax_df |> summarize(n_nan = sum(is.nan(mean_tmax)), n_total = n())
-
 ```
 
 ## January and July mean maximum temperature
 ```{r}
+monthly_tmax_df =
+  ny_noaa_clean |>
+  filter(month %in% c(1, 7)) |>
+  group_by(id, year, month) |>
+  summarize(mean_tmax = mean(tmax, na.rm = TRUE), .groups = "drop")
+monthly_tmax_df
+```
+
+```{r}
 monthly_tmax_df |>
- drop_na(mean_tmax) |> 
-mutate(month = factor(month, levels = c(1, 7), labels = c("January", "July")))|> 
+  drop_na(mean_tmax) |>
+  mutate(
+    month = factor(month, levels = c(1, 7), labels = c("January", "July"))
+  ) |>
   ggplot(aes(x = year, y = mean_tmax, group = id)) +
-  scale_x_continuous(breaks = c(1985, 1995, 2005))+
   geom_line(alpha = .1) +
   facet_grid(. ~ month) +
+  scale_x_continuous(breaks = c(1985, 1995, 2005)) +
   labs(
-    title = " Mean maximum temperature by station", 
-    x = " Year", 
-    y = " Mean maximum temperature (°C)"
-    )
+    title = "Mean maximum temperature by station",
+    x = "Year",
+    y = "Mean maximum temperature (°C)"
+  )
+monthly_tmax_df
+```
+Station-year-months with no valid maximum temperature
+(`r sum(is.nan(monthly_tmax_df$mean_tmax))` of `r nrow(monthly_tmax_df)`) are 
+omitted from the plot.
 
 
+
+To investigate the lowest July value, 
+I looked at that station and year in more detail.
+```{r}
 monthly_tmax_df |>
   drop_na(mean_tmax) |>
   filter(month == 7, mean_tmax < 17)
-
+monthly_tmax_df
 
 ny_noaa_clean |>
   filter(id == "USC00308962", year == 1988, month == 7) |>
   summarize(n_days = n(), n_valid_tmax = sum(!is.na(tmax)))
-
+ny_noaa_clean
 ```
-
 The plot shows the mean maximum temperature for each station in January and July 
 from 1981 to 2010.
 In January, most station means range from about -10 to 8 °C, 
@@ -120,7 +163,7 @@ although this cannot be confirmed from these data alone.
 
 
 ## Temperature and snowfall plots
-```{r}
+```{r, fig.width = 10, fig.asp = .5}
 hex_plot =
   ny_noaa_clean |>
   ggplot(aes(x = tmin, y = tmax)) +
@@ -161,35 +204,35 @@ A few isolated hexagons are implausible, including maximum temperatures above 50
 (some near 60 °C) and several points where the minimum temperature is higher than the maximum, 
 such as a minimum near 50 °C with a maximum near 0 °C. These are likely recording errors.
 
-The right panel shows the distribution of snowfall values between 0 and 100 mm for each year. 
-The distributions are similar across years: each has a large mass of small values 
-(below about 15 mm), followed by smaller peaks near 25, 51 and 76 mm, 
-which is consistent with snowfall being recorded in inches and then converted to millimeters. 
-Differences between years are small; for example, 2010 appears to have a taller peak 
-at the low end than most other years.
-
 
 ```{r}
 ny_noaa_clean |>
   filter(tmin > tmax) |>
   count()
+ny_noaa_clean
 ```
-1183 observations have a minimum temperature higher than the maximum.
+The right panel shows the distribution of snowfall values between 0 and 100 mm for each year. 
+The distributions are similar across years: each has a large mass of small values 
+(below about 15 mm), followed by smaller peaks near 25, 51 and 76 mm, 
+which is consistent with snowfall being recorded in inches and then converted to millimeters. 
+Differences between years are small; for example, 2010 appears to have a taller peak 
+at the low end than most other years. 1183 observations have a minimum temperature higher than the maximum.
 
 
 
 ##Problem 2
+### Load, tidy, and merge the data
 ```{r}
 covar_df =
   read_csv("data/nhanes_covar.csv", skip = 4, na = c("", ".", "NA")) |>
   janitor::clean_names()
+covar_df
 
 accel_df =
   read_csv("data/nhanes_accel.csv") |>
   janitor::clean_names()
-```
+accel_df
 
-```{r}
 nhanes_df =
   left_join(covar_df, accel_df, by = "seqn") |>
   drop_na(sex, age, bmi, education) |>
@@ -199,22 +242,43 @@ nhanes_df =
     education = factor(
       education,
       levels = c(1, 2, 3),
-      labels = c("Less than high school", "High school equivalent", "More than high school"),
+      labels = c(
+        "Less than high school",
+        "High school equivalent",
+        "More than high school"
+      ),
       ordered = TRUE
     )
   )
-nhanes_df |>
-  filter(seqn == 62161) |>
-  select(seqn, sex, age, bmi, education)
+nhanes_df
 ```
+The covariate file has `r nrow(covar_df)` participants. 
+After excluding those younger than 21 or with missing demographic data, 
+`r nrow(nhanes_df)` participants remain (`r nrow(covar_df) - nrow(nhanes_df)` excluded). 
+The final dataset keeps all originally observed variables; `sex` 
+and `education` are coded as factors, with education ordered from lowest to highest.
 
 
+
+### Education and sex
 ```{r}
 nhanes_df |>
   count(education, sex) |>
   pivot_wider(names_from = sex, values_from = n) |>
   knitr::kable(caption = "Number of men and women in each education category")
+nhanes_df 
+```
+The table shows the number of men and women in each education category 
+among the 228 participants aged 21 or older. 
+The largest category is “More than high school” (n = 115). 
+Men and women are similarly represented in “Less than high school” (27 vs. 28) 
+and “More than high school” (56 vs. 59). The exception is “High school equivalent”, 
+which has 35 men but only 23 women.
 
+
+
+### Age distribution
+```{r}
 nhanes_df |>
   ggplot(aes(x = education, y = age, fill = sex)) +
   geom_boxplot() +
@@ -233,16 +297,10 @@ nhanes_df |>
     q1_age = quantile(age, 0.25),
     q3_age = quantile(age, 0.75),
     .groups = "drop"
-  )
+  ) |>
+  knitr::kable(digits = 1, caption = "Age summary by education and sex")
+nhanes_df
 ```
-
-The table shows the number of men and women in each education category 
-among the 228 participants aged 21 or older. 
-The largest category is “More than high school” (n = 115). 
-Men and women are similarly represented in “Less than high school” (27 vs. 28) 
-and “More than high school” (56 vs. 59). The exception is “High school equivalent”, 
-which has 35 men but only 23 women.
-
 The boxplot shows that median age is 60 (men) and 61 (women) among participants 
 with less than a high school education, compared with 43.5 (men) and 41 (women) 
 among those with more than a high school education, 
@@ -253,6 +311,11 @@ However, the age distributions are wide and overlap substantially.
 For example, the middle 50% of women with a high school equivalent education range 
 from 44.5 to 74.5 years.
 
+
+### Total activity by age
+To compare total activity, 
+I converted the data to long format and summed the MIMS values 
+over the 1,440 minutes of the day for each participant.
 ```{r}
 nhanes_long =
   nhanes_df |>
@@ -262,7 +325,6 @@ nhanes_long =
     values_to = "mims"
   ) |>
   mutate(minute = parse_number(minute_label))
-nhanes_long
 
 total_activity_df =
   nhanes_long |>
@@ -275,7 +337,7 @@ total_activity_df
 
 ##draw plots
 total_activity
-```{r}
+```{r, fig.width = 8}
 total_activity_df |>
   ggplot(aes(x = age, y = total_activity, color = sex)) +
   geom_point(alpha = .5) +
@@ -298,15 +360,14 @@ women peak at about age 40 (roughly 17,000 MIMS), well above men (roughly 14,000
 and both sexes level off at about 10,000 after age 60. 
 In the more than high school group, the trends are flatter, 
 and women have higher total activity than men at most ages. 
-One man in this group (about age 36) has near-zero total activity, 
+One man in this group (age 36) has a total activity of only 301 MIMS, 
 which may reflect a device-wear or data issue worth checking. 
 Because each panel contains relatively few participants and the points 
 are widely scattered, the smooth curves should be interpreted as rough trends only.
 
 
 
-
-activity_by_minute
+### 24-hour activity profile
 ```{r}
 activity_by_minute_df =
   nhanes_long |>
@@ -336,7 +397,7 @@ In the high school equivalent group, women are slightly more active than men
 during the day (roughly 13 vs. 12 MIMS). The difference is largest in the more than 
 high school group, where women remain at about 14 MIMS from late morning through 
 the evening, while men show a dip in the mid-afternoon and a smaller second rise 
-around 6 PM. Overnight activity is very similar across sexes and education levels. 
+around 6 PM.Overnight activity is low in all three education groups.
 These curves show group averages at each minute and hide substantial individual 
 variation. Education groups also differ in age (shown in the earlier boxplot), 
 and total activity declines with age, so differences across education groups may 
@@ -345,23 +406,24 @@ partly reflect age rather than education itself.
 
 
 ##Problem 3
+### Import and describe the data
 ```{r}
-jan_2020_df =
+jan_2020_df <-
   read_csv("data/citibike/Jan 2020 Citi.csv") |>
   janitor::clean_names() |>
   mutate(year = 2020, month = "January")
 
-jul_2020_df =
+jul_2020_df <-
   read_csv("data/citibike/July 2020 Citi.csv") |>
   janitor::clean_names() |>
   mutate(year = 2020, month = "July")
 
-jan_2024_df =
+jan_2024_df <-
   read_csv("data/citibike/Jan 2024 Citi.csv") |>
   janitor::clean_names() |>
   mutate(year = 2024, month = "January")
 
-jul_2024_df =
+jul_2024_df <-
   read_csv("data/citibike/July 2024 Citi.csv") |>
   janitor::clean_names() |>
   mutate(year = 2024, month = "July")
@@ -373,13 +435,16 @@ citi_df =
     month = factor(month, levels = c("January", "July")),
     weekdays = factor(
       weekdays,
-      levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+      levels = c(
+        "Monday", "Tuesday", "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday"
+      )
     ),
     rideable_type = factor(rideable_type),
     member_casual = factor(member_casual)
   )
+citi_df
 ```
-
 The Citi Bike dataset contains `r format(nrow(citi_df), big.mark = ",")` rides, 
 drawn from a 1% sample of rides lasting less than 4 hours in each of four months: 
 January and July of 2020 and 2024. There are `r ncol(citi_df)` variables: ride ID, 
@@ -400,13 +465,8 @@ all other variables are complete.
 
 
 
-##Number of rides by year, month, and rider type
+### Number of rides by year, month, and rider type
 ```{r}
-citi_df |>
-  count(year, month, member_casual) |>
-  pivot_wider(names_from = member_casual, values_from = n) |>
-  knitr::kable(caption = "Number of rides by year, month, and rider type")
-
 citi_df |>
   count(year, month, member_casual) |>
   pivot_wider(names_from = member_casual, values_from = n) |>
@@ -415,10 +475,8 @@ citi_df |>
     pct_casual = round(100 * casual / total, 1)
   ) |>
   knitr::kable(caption = "Number of rides by year, month, and rider type")
+citi_df
 ```
-To better measure the proportion of the four categories, Claude suggests to use
-pct_casual to list two more columns including total and the proportion.
-
 And from the table, we can infer that members account for the majority of rides 
 in every month, but the share of casual riders varies strongly by season. 
 In January, casual riders made up only 7.9% of rides in 2020 (984 of 12,420) 
@@ -432,7 +490,9 @@ These counts come from a 1% sample of rides,
 so they should be read as relative patterns rather than the true number of rides.
 
 
-##Top 5 start stations-2024
+
+
+### Top 5 start stations, July 2024
 ```{r}
 citi_df |>
   filter(year == 2024, month == "July") |>
@@ -453,7 +513,7 @@ in rank among these stations may not be meaningful.
 
 
 
-##summarize median duration
+### Median ride duration by weekday
 ```{r}
 citi_df |>
   group_by(year, month, weekdays) |>
@@ -464,11 +524,17 @@ citi_df |>
   facet_grid(. ~ month) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(
-    title = "Median ride duration by day of week, \nmonth, and year",
+    title = "Median ride duration by day of week,\nmonth, and year",
     x = "Day of week",
     y = "Median ride duration (minutes)",
     color = "Year"
   )
+
+citi_df |>
+  group_by(year, month, weekdays) |>
+  summarize(median_duration = median(duration), .groups = "drop") |>
+  pivot_wider(names_from = weekdays, values_from = median_duration) |>
+  knitr::kable(digits = 1, caption = "Median ride duration (minutes)")
 citi_df
 ```
 Median ride duration varies more by month and year than by day of the week. 
@@ -484,7 +550,7 @@ differences of a few tenths of a minute may not be meaningful.
 
 
 
-##Ride duration by membership, bike type, and month (2024)
+### Ride duration distribution in 2024
 ```{r}
 citi_df |>
   filter(year == 2024) |>
@@ -498,6 +564,18 @@ citi_df |>
     y = "Ride duration (minutes)",
     fill = "Bike type"
   )
+
+citi_df |>
+  filter(year == 2024) |>
+  group_by(month, member_casual, rideable_type) |>
+  summarize(
+    n = n(),
+    median_duration = median(duration),
+    q1 = quantile(duration, 0.25),
+    q3 = quantile(duration, 0.75),
+    .groups = "drop"
+  ) |>
+  knitr::kable(digits = 1, caption = "Ride duration summary, 2024 (minutes)")
 citi_df
 ```
 Since the data is right-skewed, Claude suggests me 
@@ -521,4 +599,8 @@ on classic bikes (9.2 vs. 7.7 minutes in July). The sample of casual
 classic-bike rides in January is small (n = 456), so that median is less stable. 
 These are descriptive comparisons from a 1% sample and do not show 
 why the groups differ.
+
+
+Claude Ai is used to help in trouble shooting 
+and also code revision and arrangement in this assignment.
 
