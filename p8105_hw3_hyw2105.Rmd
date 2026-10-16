@@ -482,3 +482,43 @@ the exception is January 2024, when Sunday (7.4 minutes) is tied for the lowest.
 These patterns are descriptive only, and because the data are a 1% sample, 
 differences of a few tenths of a minute may not be meaningful.
 
+
+
+##Ride duration by membership, bike type, and month (2024)
+```{r}
+citi_df |>
+  filter(year == 2024) |>
+  ggplot(aes(x = member_casual, y = duration, fill = rideable_type)) +
+  geom_boxplot() +
+  facet_grid(. ~ month) +
+  coord_cartesian(ylim = c(0, 60)) +
+  labs(
+    title = "Ride duration by membership, bike type,\nand month (2024)",
+    x = "Rider type",
+    y = "Ride duration (minutes)",
+    fill = "Bike type"
+  )
+citi_df
+```
+Since the data is right-skewed, Claude suggests me 
+to use coord_cartesian() to adjust abit on the plot.
+
+Ride durations are strongly right-skewed in every group: 
+most rides are short, but a long tail extends to nearly 4 hours 
+(the y-axis is truncated at 60 minutes for readability, 
+so longer rides are not shown but are included in all statistics). 
+Casual riders take longer and more variable rides than members in both months; 
+for example, in July the median ride is 15.6 minutes for casual riders 
+on classic bikes versus 7.7 minutes for members on classic bikes. 
+Month matters mainly for casual riders, 
+whose median duration is 2.9–3.6 minutes longer in July than in 
+January (classic: 15.6 vs. 12.7; electric: 12.9 vs. 9.3), 
+compared with 0.4–1.6 minutes among members. Bike type also affects 
+the two groups differently: casual riders on classic bikes ride longer 
+than those on electric bikes (15.6 vs. 12.9 minutes in July), 
+whereas members on electric bikes ride slightly longer than those 
+on classic bikes (9.2 vs. 7.7 minutes in July). The sample of casual 
+classic-bike rides in January is small (n = 456), so that median is less stable. 
+These are descriptive comparisons from a 1% sample and do not show 
+why the groups differ.
+
