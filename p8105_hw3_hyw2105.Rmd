@@ -602,5 +602,6 @@ why the groups differ.
 
 
 Claude Ai is used to help in trouble shooting 
-and also code revision and arrangement in this assignment.
+and also code revision and arrangement for cross checking
+the style rubric in this assignment.
 
