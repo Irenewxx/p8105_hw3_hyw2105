@@ -397,3 +397,57 @@ of rides used electric bikes. Missing values occur only in
 station names (`r sum(is.na(citi_df$start_station_name))` start stations 
 and `r sum(is.na(citi_df$end_station_name))` end stations); 
 all other variables are complete.
+
+
+
+##Number of rides by year, month, and rider type
+```{r}
+citi_df |>
+  count(year, month, member_casual) |>
+  pivot_wider(names_from = member_casual, values_from = n) |>
+  knitr::kable(caption = "Number of rides by year, month, and rider type")
+
+citi_df |>
+  count(year, month, member_casual) |>
+  pivot_wider(names_from = member_casual, values_from = n) |>
+  mutate(
+    total = casual + member,
+    pct_casual = round(100 * casual / total, 1)
+  ) |>
+  knitr::kable(caption = "Number of rides by year, month, and rider type")
+```
+To better measure the proportion of the four categories, Claude suggests to use
+pct_casual to list two more columns including total and the proportion.
+
+And from the table, we can infer that members account for the majority of rides 
+in every month, but the share of casual riders varies strongly by season. 
+In January, casual riders made up only 7.9% of rides in 2020 (984 of 12,420) 
+and 11.2% in 2024 (2,108 of 18,861), whereas in July they made up 26.8% in 
+2020 (5,637 of 21,048) and 23.1% in 2024 (10,894 of 47,156). 
+Ridership also grew between 2020 and 2024, by about 52% in January and 124% in July. 
+Casual rides in July nearly doubled (5,637 to 10,894), 
+while member rides more than doubled (15,411 to 36,262), 
+so the casual share in July declined slightly. 
+These counts come from a 1% sample of rides, 
+so they should be read as relative patterns rather than the true number of rides.
+
+
+##Top 5 start stations-2024
+```{r}
+citi_df |>
+  filter(year == 2024, month == "July") |>
+  count(start_station_name, name = "n_rides") |>
+  arrange(desc(n_rides)) |>
+  slice_head(n = 5) |>
+  knitr::kable(caption = "Top 5 start stations, July 2024")
+```
+The five most popular starting stations in July 2024 were Pier 61 at 
+Chelsea Piers (163 rides), University Pl & E 14 St (155), W 21 St & 6 Ave (152), 
+West St & Chambers St (150), and W 31 St & 7 Ave (146). 
+The counts are close to one another, and each station accounts for 
+only about 0.3% of the 47,156 rides in July 2024, so no single station dominates. 
+The next two stations, Broadway & E 21 St (142) and 10 Ave & W 14 St (141), 
+are only a few rides behind the fifth, so there is no clear gap separating 
+the top five from the rest. Because the data are a 1% sample, small differences 
+in rank among these stations may not be meaningful.
+
