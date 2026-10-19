@@ -42,7 +42,7 @@ The key variables are the station ID (`id`), the date (`date`),
 precipitation (`prcp`), snowfall (`snow`), snow depth (`snwd`), 
 and the maximum and minimum temperature (`tmax`, `tmin`).
 
-### Data cleaning and summarizing the Missing data
+### Data cleaning 
 ```{r}
 ny_noaa_clean =
   ny_noaa |>
@@ -54,26 +54,45 @@ ny_noaa_clean =
     tmin = as.numeric(tmin) / 10,
     prcp = prcp / 10
   )
+```
+I created separate variables for year, month, and day from `date`. 
+The raw `tmax`, `tmin`, and `prcp` values are recorded in tenths of 
+a unit (and `tmax` and `tmin` are stored as text), so I converted them 
+to numbers and divided by 10 to obtain degrees Celsius and millimeters. 
+Snowfall (`snow`) is already in millimeters. Some snowfall values are not 
+physically plausible: `snow` ranges from `r min(ny_noaa$snow, na.rm = TRUE)` 
+to `r max(ny_noaa$snow, na.rm = TRUE)` mm, 
+and `r sum(ny_noaa$snow < 0, na.rm = TRUE)` values are negative. 
+I kept them in the cleaned data; the snowfall plot below only uses values
+between 0 and 100 mm.
 
+
+### Missing data
+```{r}
 ny_noaa_clean |>
   summarize(
     across(c(prcp, snow, snwd, tmax, tmin), ~ mean(is.na(.x)) * 100)
   ) |>
   knitr::kable(digits = 1, caption = "Percentage of missing values")
+```
+Missing data are a substantial issue: 43.7% of `tmax` and `tmin`, 
+22.8% of `snwd`, 14.7% of `snow`, and 5.6% of `prcp` are missing, 
+so temperature is the least complete variable.
 
+
+
+### Snowfall values
+```{r}
 
 ny_noaa_clean |>
   count(snow, sort = TRUE) |>
   head(10) |>
   knitr::kable(caption = "Ten most common snowfall values (mm)")
 ```
-Missing data are a substantial issue: 43.7% of `tmax` and `tmin`, 
-22.8% of `snwd`, 14.7% of `snow`, and 5.6% of `prcp` are missing, 
-so temperature is the least complete variable.
-
 The most common snowfall value is 0 mm (2,008,508 observations), 
-accounting for about 77% of all observations. 
-This is probably because it does not snow on most days in New York.
+accounting for about 77% of all observations and about 91% of observations 
+with a recorded value. This is expected because it snows on only a small 
+fraction of days, and almost never outside the winter months.
 
 The second most common value is NA (381,221 observations), 
 which means no measurement was recorded on those days. 
@@ -93,20 +112,20 @@ monthly_tmax_df <-
   filter(month %in% c(1, 7)) |>
   group_by(id, year, month) |>
   summarize(mean_tmax = mean(tmax, na.rm = TRUE), .groups = "drop")
-head(ny_noaa_clean)
 
 
 monthly_tmax_df |> summarize(n_nan = sum(is.nan(mean_tmax)), n_total = n())
 ```
 
-## January and July mean maximum temperature
+
+### January and July mean maximum temperature
 ```{r}
 monthly_tmax_df =
   ny_noaa_clean |>
   filter(month %in% c(1, 7)) |>
   group_by(id, year, month) |>
   summarize(mean_tmax = mean(tmax, na.rm = TRUE), .groups = "drop")
-monthly_tmax_df
+
 ```
 
 ```{r}
@@ -124,7 +143,7 @@ monthly_tmax_df |>
     x = "Year",
     y = "Mean maximum temperature (°C)"
   )
-monthly_tmax_df
+
 ```
 Station-year-months with no valid maximum temperature
 (`r sum(is.nan(monthly_tmax_df$mean_tmax))` of `r nrow(monthly_tmax_df)`) are 
@@ -137,32 +156,49 @@ I looked at that station and year in more detail.
 ```{r}
 monthly_tmax_df |>
   drop_na(mean_tmax) |>
+  filter(
+    (month == 7 & mean_tmax < 17) |
+      (month == 1 & mean_tmax < -11)
+  )
+
+monthly_tmax_df |>
+  drop_na(mean_tmax) |>
   filter(month == 7, mean_tmax < 17)
-monthly_tmax_df
 
 ny_noaa_clean |>
   filter(id == "USC00308962", year == 1988, month == 7) |>
   summarize(n_days = n(), n_valid_tmax = sum(!is.na(tmax)))
-ny_noaa_clean
+
+
+ny_noaa_clean |>
+  filter(
+    (id == "USC00301723" & year == 1982 & month == 1) |
+      (id == "USC00305925" & year == 2005 & month == 1)
+  ) |>
+  group_by(id, year, month) |>
+  summarize(n_days = n(), n_valid_tmax = sum(!is.na(tmax)), .groups = "drop")
+
 ```
 The plot shows the mean maximum temperature for each station in January and July 
-from 1981 to 2010.
-In January, most station means range from about -10 to 8 °C, 
-while in July they are higher, ranging from about 21 to 32 °C.
-The lines move up and down together across stations, 
-which suggests that year-to-year changes are driven 
-mainly by regional weather shared across stations rather than 
-by local conditions at individual stations. 
-This year-to-year variation is larger in January.
-There are a few outliers; for example, station USC00308962 
-in July 1988 has a mean of about 14 °C, far below other stations that year. 
-Because this station has valid data on all 31 days, 
-the low value is unlikely to result from missing data; 
-it may reflect a local measurement or recording problem, 
-although this cannot be confirmed from these data alone.
+from 1981 to 2010; station-year-months with no valid 
+`tmax` (`r sum(is.nan(monthly_tmax_df$mean_tmax))` of `r nrow(monthly_tmax_df)`) are omitted. 
+In January, most station means range from about −10 to 8 °C, 
+while in July they range from about 21 to 32 °C. The lines rise and fall together 
+across stations, which suggests that year-to-year changes are at least partly driven 
+by regional weather shared across stations rather than by local conditions, 
+and this variation is larger in January than in July. I do not see a clear long-term 
+increase or decrease over the 30 years. Three station-year-months stand out as outliers. 
+Station USC00301723 in January 1982 has a mean of −13.4 °C, and station USC00308962 
+in July 1988 has a mean of about 14 °C, far below the other stations that year; 
+both are based on valid data for all 31 days, so they are unlikely to 
+result from missing data and may reflect genuine cold spells or local measurement 
+or recording problems, although this cannot be confirmed from these data alone. 
+The third, station USC00305925 in January 2005 (−12.2 °C), is based on only 
+1 valid day out of 31, so it reflects a single observation rather than a monthly 
+average and should be interpreted cautiously.
 
 
-## Temperature and snowfall plots
+### Temperature and snowfall plots
 ```{r, fig.width = 10, fig.asp = .5}
 hex_plot =
   ny_noaa_clean |>
@@ -195,43 +231,43 @@ hex_plot + ridge_plot
 The left panel shows the relationship between daily minimum 
 and maximum temperature for all observations. 
 A hex plot is used because there are more than two million rows, 
-and a scatterplot would be heavily overplotted. 
+and a scatterplot would be heavily overplotted.
+About 44% of the rows have a missing tmax or 
+tmin and are not shown in the left panel.
 The two variables are positively associated: 
-most observations fall in a narrow diagonal band, 
-and the densest hexagons (more than 40,000 observations each) 
-are around a minimum of 10–15 °C and a maximum of 20–25 °C. 
-A few isolated hexagons are implausible, including maximum temperatures above 50 °C 
-(some near 60 °C) and several points where the minimum temperature is higher than the maximum, 
-such as a minimum near 50 °C with a maximum near 0 °C. These are likely recording errors.
+most observations fall in a narrow diagonal band, and the densest 
+hexagons (more than 40,000 observations each) are around a minimum of 10–15 °C 
+and a maximum of 20–25 °C. A few isolated hexagons are implausible, including 
+maximum temperatures above 50 °C (some near 60 °C) and several points 
+where the minimum temperature is higher than the maximum, such as 
+a minimum near 50 °C with a maximum near 0 °C. These are likely recording errors.
 
 
 ```{r}
 ny_noaa_clean |>
   filter(tmin > tmax) |>
   count()
-ny_noaa_clean
+
 ```
 The right panel shows the distribution of snowfall values between 0 and 100 mm for each year. 
 The distributions are similar across years: each has a large mass of small values 
 (below about 15 mm), followed by smaller peaks near 25, 51 and 76 mm, 
 which is consistent with snowfall being recorded in inches and then converted to millimeters. 
-Differences between years are small; for example, 2010 appears to have a taller peak 
-at the low end than most other years. 1183 observations have a minimum temperature higher than the maximum.
+Differences between years are small. 
+1183 observations have a minimum temperature higher than the maximum.
 
 
 
-##Problem 2
+## Problem 2
 ### Load, tidy, and merge the data
 ```{r}
 covar_df =
   read_csv("data/nhanes_covar.csv", skip = 4, na = c("", ".", "NA")) |>
   janitor::clean_names()
-covar_df
 
 accel_df =
   read_csv("data/nhanes_accel.csv") |>
   janitor::clean_names()
-accel_df
 
 nhanes_df =
   left_join(covar_df, accel_df, by = "seqn") |>
@@ -250,7 +286,7 @@ nhanes_df =
       ordered = TRUE
     )
   )
-nhanes_df
+
 ```
 The covariate file has `r nrow(covar_df)` participants. 
 After excluding those younger than 21 or with missing demographic data, 
@@ -266,7 +302,7 @@ nhanes_df |>
   count(education, sex) |>
   pivot_wider(names_from = sex, values_from = n) |>
   knitr::kable(caption = "Number of men and women in each education category")
-nhanes_df 
+
 ```
 The table shows the number of men and women in each education category 
 among the 228 participants aged 21 or older. 
@@ -299,7 +335,7 @@ nhanes_df |>
     .groups = "drop"
   ) |>
   knitr::kable(digits = 1, caption = "Age summary by education and sex")
-nhanes_df
+
 ```
 The boxplot shows that median age is 60 (men) and 61 (women) among participants 
 with less than a high school education, compared with 43.5 (men) and 41 (women) 
@@ -330,13 +366,13 @@ total_activity_df =
   nhanes_long |>
   group_by(seqn, sex, age, education) |>
   summarize(total_activity = sum(mims), .groups = "drop")
-total_activity_df
+
 ```
 
 
 
-##draw plots
-total_activity
+Next, I plotted total activity against age, 
+using color for sex and a separate panel for each education level.
 ```{r, fig.width = 8}
 total_activity_df |>
   ggplot(aes(x = age, y = total_activity, color = sex)) +
@@ -352,12 +388,11 @@ total_activity_df |>
 ```
 The scatterplot shows that total daily activity generally declines with age, 
 but the pattern differs by education level. 
-Among participants with less than a high school education, 
-total activity falls steadily from about 17,000–18,500 MIMS 
-in the youngest participants to about 9,000 at age 80, 
-with men and women following similar trends. In the high school equivalent group, 
-women peak at about age 40 (roughly 17,000 MIMS), well above men (roughly 14,000), 
-and both sexes level off at about 10,000 after age 60. 
+Among participants with less than a high school education, total activity falls 
+from about 17,000–18,500 MIMS in the youngest participants to about 9,000 at age 80; 
+women decline steadily, whereas men show a small rise around age 60 before dropping. 
+In the high school equivalent group, women peak at about age 40 (roughly 17,000 MIMS), 
+well above men (roughly 14,000), and both sexes level off at about 10,000 after age 60. 
 In the more than high school group, the trends are flatter, 
 and women have higher total activity than men at most ages. 
 One man in this group (age 36) has a total activity of only 301 MIMS, 
@@ -397,7 +432,9 @@ In the high school equivalent group, women are slightly more active than men
 during the day (roughly 13 vs. 12 MIMS). The difference is largest in the more than 
 high school group, where women remain at about 14 MIMS from late morning through 
 the evening, while men show a dip in the mid-afternoon and a smaller second rise 
-around 6 PM.Overnight activity is low in all three education groups.
+around 6 PM.Participants with a high school equivalent education have the lowest daytime 
+activity of the three groups (about 12–13 MIMS, compared with about 14–15 in the 
+other two groups).Overnight activity is low in all three education groups.
 These curves show group averages at each minute and hide substantial individual 
 variation. Education groups also differ in age (shown in the earlier boxplot), 
 and total activity declines with age, so differences across education groups may 
@@ -405,7 +442,7 @@ partly reflect age rather than education itself.
 
 
 
-##Problem 3
+## Problem 3
 ### Import and describe the data
 ```{r}
 jan_2020_df <-
@@ -443,7 +480,7 @@ citi_df =
     rideable_type = factor(rideable_type),
     member_casual = factor(member_casual)
   )
-citi_df
+
 ```
 The Citi Bike dataset contains `r format(nrow(citi_df), big.mark = ",")` rides, 
 drawn from a 1% sample of rides lasting less than 4 hours in each of four months: 
@@ -475,7 +512,7 @@ citi_df |>
     pct_casual = round(100 * casual / total, 1)
   ) |>
   knitr::kable(caption = "Number of rides by year, month, and rider type")
-citi_df
+
 ```
 And from the table, we can infer that members account for the majority of rides 
 in every month, but the share of casual riders varies strongly by season. 
@@ -535,7 +572,7 @@ citi_df |>
   summarize(median_duration = median(duration), .groups = "drop") |>
   pivot_wider(names_from = weekdays, values_from = median_duration) |>
   knitr::kable(digits = 1, caption = "Median ride duration (minutes)")
-citi_df
+
 ```
 Median ride duration varies more by month and year than by day of the week. 
 In both years, rides are longer in July than in January 
@@ -576,7 +613,7 @@ citi_df |>
     .groups = "drop"
   ) |>
   knitr::kable(digits = 1, caption = "Ride duration summary, 2024 (minutes)")
-citi_df
+
 ```
 Since the data is right-skewed, Claude suggests me 
 to use coord_cartesian() to adjust abit on the plot.
@@ -601,7 +638,7 @@ These are descriptive comparisons from a 1% sample and do not show
 why the groups differ.
 
 
-Claude Ai is used to help in trouble shooting 
-and also code revision and arrangement for cross checking
-the style rubric in this assignment.
+I used Claude to help with troubleshooting, revising code, 
+and checking my work against the style rubric. I reviewed and verified 
+all code and interpretations myself.
 
